@@ -59,6 +59,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="0 means retry forever",
     )
 
+    existing_attach = subparsers.add_parser(
+        "attach-existing-probe",
+        help="Attach an uploaded file to an existing vector store",
+    )
+    existing_attach.add_argument("--file-path", required=True)
+    existing_attach.add_argument(
+        "--vector-store",
+        dest="vector_store_id",
+        required=True,
+        help="Existing vector store id to attach against",
+    )
+    existing_attach.add_argument(
+        "--max-attempts",
+        type=int,
+        default=0,
+        help="0 means retry forever",
+    )
+
     return parser
 
 
@@ -109,6 +127,21 @@ async def _run_async(args: argparse.Namespace) -> int:
         attempts = None if args.max_attempts == 0 else args.max_attempts
         result = await service.probe_vector_store_attach(
             args.file_path,
+            attempts=attempts,
+        )
+        print(f"Upload seconds: {result.upload_seconds:.3f}")
+        print(f"Attach seconds: {result.attach_seconds:.3f}")
+        print(f"Total seconds: {result.total_seconds:.3f}")
+        print(f"File ID: {result.file_id}")
+        print(f"Vector store ID: {result.vector_store_id}")
+        print(f"Vector store file ID: {result.vector_store_file_id}")
+        return 0
+
+    if args.command == "attach-existing-probe":
+        attempts = None if args.max_attempts == 0 else args.max_attempts
+        result = await service.probe_existing_vector_store_attach(
+            args.file_path,
+            vector_store_id=args.vector_store_id,
             attempts=attempts,
         )
         print(f"Upload seconds: {result.upload_seconds:.3f}")

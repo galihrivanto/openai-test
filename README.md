@@ -104,6 +104,31 @@ This probe:
 - retries the vector-store attach call until it succeeds
 - deletes the vector-store file, uploaded file, and temporary vector store afterward
 
+### `attach-existing-probe`
+
+Attaches a local file to an existing vector store and cleans up only the uploaded
+file plus the attachment. The vector store itself is left untouched.
+
+```bash
+uv run openai-test attach-existing-probe \
+  --file-path /path/to/image.jpg \
+  --vector-store vs_...
+```
+
+Options:
+
+- `--vector-store`: existing vector store id to test against
+- `--max-attempts`: number of retries, default `0` means retry forever
+
+This probe:
+
+- uses the existing vector store you pass in
+- uploads the file with `purpose=assistants`
+- waits for file processing
+- retries file visibility checks
+- retries the vector-store attach call until it succeeds
+- deletes the attached test file from the store and deletes the uploaded file afterward
+
 ## Retry behavior
 
 The probing helpers retry OpenAI status codes that often represent transient

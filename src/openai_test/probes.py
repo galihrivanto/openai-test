@@ -305,6 +305,89 @@ class OpenAIProbeService:
                         vector_store_id=vector_store_id,
                     )
 
+    async def probe_existing_vector_store_attach(
+        self,
+        file_path: str,
+        *,
+        vector_store_id: str,
+        attempts: int | None,
+        initial_delay_seconds: float = 1.0,
+    ) -> VectorStoreAttachProbeResult:
+        start = time.perf_counter()
+        file_id = ""
+        vector_store_file_id = ""
+        logger.info(
+            "Using existing vector store vector_store_id=%s",
+            vector_store_id,
+        )
+        try:
+            with Path(file_path).open("rb") as file:
+                logger.info(
+                    "Uploading probe file for existing-store attach api_key_fingerprint=%s file_path=%s vector_store_id=%s",
+                    self._api_key_fingerprint,
+                    file_path,
+                    vector_store_id,
+                )
+                upload_started = time.perf_counter()
+                uploaded_file = await self._client.files.create(
+                    file=file,
+                    purpose="assistants",
+                )
+                upload_finished = time.perf_counter()
+                logger.info(
+                    "Waiting for uploaded file processing file_id=%s",
+                    uploaded_file.id,
+                )
+                await self._client.files.wait_for_processing(
+                    uploaded_file.id,
+                    max_wait_seconds=60,
+                )
+                logger.info("Waiting for file visibility file_id=%s", uploaded_file.id)
+                ready_file = await self._wait_for_file_visibility(uploaded_file.id)
+                file_id = ready_file.id
+
+            logger.info(
+                "Attaching file to existing vector store file_id=%s vector_store_id=%s",
+                file_id,
+                vector_store_id,
+            )
+            attach_started = time.perf_counter()
+            vector_store_file = await retry_until_success(
+                lambda: self._client.vector_stores.files.create(
+                    vector_store_id=vector_store_id,
+                    file_id=file_id,
+                ),
+                attempts=attempts,
+                initial_delay_seconds=initial_delay_seconds,
+            )
+            attach_finished = time.perf_counter()
+            vector_store_file_id = vector_store_file.id
+
+            return VectorStoreAttachProbeResult(
+                upload_seconds=upload_finished - upload_started,
+                attach_seconds=attach_finished - attach_started,
+                total_seconds=attach_finished - start,
+                file_id=file_id,
+                vector_store_id=vector_store_id,
+                vector_store_file_id=vector_store_file_id,
+            )
+        finally:
+            if vector_store_file_id:
+                logger.info(
+                    "Cleaning up attached vector-store file file_id=%s vector_store_id=%s",
+                    file_id,
+                    vector_store_id,
+                )
+                with contextlib.suppress(Exception):
+                    await self._client.vector_stores.files.delete(
+                        vector_store_id=vector_store_id,
+                        file_id=file_id,
+                    )
+            if file_id:
+                logger.info("Cleaning up uploaded file file_id=%s", file_id)
+                with contextlib.suppress(Exception):
+                    await self._client.files.delete(file_id=file_id)
+
     async def _wait_for_file_visibility(self, file_id: str) -> FileObject:
         logger.info("Retrying until file is visible file_id=%s", file_id)
         return await retry_until_success(
