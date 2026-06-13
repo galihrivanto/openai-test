@@ -1,0 +1,27 @@
+[project]
+name = "openai-test"
+version = "0.1.0"
+description = "Standalone OpenAI probing utilities for files and vector stores"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "openai>=1.0.0",
+]
+
+[project.scripts]
+openai-test = "openai_test.__main__:main"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
